@@ -4,6 +4,7 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
+    "tauri": "tauri",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
@@ -22,6 +23,7 @@
     "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.12",
