@@ -6,10 +6,10 @@ interface Props {
   conversations: Conversation[];
   activeId: string | null;
   isOpen: boolean;
+  onClose: () => void;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onNew: () => void;
-  onClose: () => void;
 }
 
 export default function Sidebar({
@@ -23,92 +23,87 @@ export default function Sidebar({
 }: Props) {
   return (
     <>
+      {/* Background Overlay - Jab sidebar khulega tab piche ka area dark ho jayega */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 sm:hidden"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity"
           onClick={onClose}
         />
       )}
+
+      {/* Sliding Drawer Panel */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[80vw] max-w-[300px] flex-col border-r border-border bg-panel transition-transform duration-200 sm:static sm:z-auto sm:w-64 sm:max-w-none sm:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-border/50 bg-panel transition-transform duration-300 ease-in-out shadow-2xl ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-term-cyan">
+        <div className="flex items-center justify-between p-4 border-b border-border/50">
+          <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
             Sessions
           </span>
           <button
             onClick={onClose}
-            className="rounded-md p-1 text-term-dim hover:bg-white/5 hover:text-slate-100 sm:hidden"
-            aria-label="Close sidebar"
+            className="p-1.5 rounded-lg text-text-muted hover:bg-white/5 hover:text-white transition-colors"
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
 
-        <button
-          onClick={onNew}
-          className="mx-3 mt-3 flex items-center justify-center gap-2 rounded-lg border border-term-cyan/30 bg-term-cyan/5 py-2 text-xs font-medium text-term-cyan transition hover:bg-term-cyan/10"
-        >
-          <Plus size={14} /> New Session
-        </button>
+        <div className="p-3">
+          <button
+            onClick={() => {
+              onNew();
+              onClose();
+            }}
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors"
+          >
+            <Plus size={16} /> New Session
+          </button>
+        </div>
 
-        <div className="mt-3 flex-1 overflow-y-auto px-2 pb-2">
+        <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1">
           {conversations.length === 0 ? (
-            <p className="py-6 text-center text-[11px] text-term-dim">
+            <p className="text-center text-xs text-text-muted py-8">
               No sessions yet
             </p>
           ) : (
-            <ul className="space-y-0.5">
-              {conversations.map((c) => {
-                const isActive = c.id === activeId;
-                return (
-                  <li key={c.id}>
-                    <div
-                      onClick={() => {
-                        onSelect(c.id);
-                        onClose();
-                      }}
-                      className={`group flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-2 transition ${
-                        isActive
-                          ? "bg-term-cyan/10 ring-1 ring-inset ring-term-cyan/30"
-                          : "hover:bg-white/5"
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={`truncate text-xs font-medium ${
-                            isActive ? "text-term-cyan" : "text-slate-300"
-                          }`}
-                        >
-                          {c.title || truncate("New session")}
-                        </p>
-                        <p className="mt-0.5 text-[10px] text-term-dim">
-                          {formatDateTime(c.updatedAt)}
-                        </p>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(c.id);
-                        }}
-                        className="p-1 text-term-dim opacity-60 transition hover:text-term-red sm:opacity-0 sm:group-hover:opacity-100"
-                        aria-label="Delete session"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            conversations.map((c) => (
+              <div
+                key={c.id}
+                onClick={() => {
+                  onSelect(c.id);
+                  onClose();
+                }}
+                className={`group flex cursor-pointer items-center justify-between gap-2 rounded-xl px-3 py-2.5 transition-colors ${
+                  activeId === c.id
+                    ? "bg-white/10"
+                    : "hover:bg-white/5"
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={`truncate text-sm font-medium ${
+                      activeId === c.id ? "text-white" : "text-gray-300"
+                    }`}
+                  >
+                    {c.title || truncate("New session")}
+                  </p>
+                  <p className="text-[10px] text-text-muted mt-0.5">
+                    {formatDateTime(c.updatedAt)}
+                  </p>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(c.id);
+                  }}
+                  className="p-1.5 text-text-muted opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))
           )}
-        </div>
-
-        <div className="border-t border-border px-3 py-2 text-center text-[10px] text-term-dim">
-          {conversations.length} session
-          {conversations.length === 1 ? "" : "s"}
         </div>
       </aside>
     </>

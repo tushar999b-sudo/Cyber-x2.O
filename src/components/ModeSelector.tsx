@@ -1,4 +1,3 @@
-import { Boxes, Braces, Radar, ShieldCheck } from "lucide-react";
 import type { Mode } from "../types/settings";
 
 interface Props {
@@ -6,38 +5,31 @@ interface Props {
   onChange: (mode: Mode) => void;
 }
 
-const MODES: { id: Mode; label: string; icon: typeof Radar }[] = [
-  { id: "PENTEST", label: "PENTEST", icon: Radar },
-  { id: "CODE", label: "CODE", icon: Braces },
-  { id: "IOT", label: "IoT LAB", icon: Boxes },
-  { id: "DEFENSE", label: "DEFENSE", icon: ShieldCheck },
+const MODES: { id: Mode; label: string }[] = [
+  { id: "PENTEST", label: "Pentest" },
+  { id: "CODE", label: "Code" },
+  { id: "IOT", label: "IoT Lab" },
+  { id: "DEFENSE", label: "Defense" },
 ];
 
 export default function ModeSelector({ mode, onChange }: Props) {
   return (
-    <nav
-      aria-label="Operation mode"
-      className="glass-panel z-10 mx-3 mt-3 grid grid-cols-4 gap-1 rounded-[18px] p-1.5"
-    >
-      {MODES.map(({ id, label, icon: Icon }) => {
-        const selected = mode === id;
-        return (
+    <div className="flex items-center justify-center p-3 border-b border-border/50 bg-bg">
+      <div className="flex gap-1 p-1 bg-[#1c1c1e] rounded-xl">
+        {MODES.map((m) => (
           <button
-            key={id}
-            aria-pressed={selected}
-            onClick={() => onChange(id)}
-            className={[
-              "flex h-10 items-center justify-center gap-1 rounded-[13px] px-1 text-[9px] font-medium transition-all",
-              selected
-                ? "border border-term-cyan/60 bg-term-cyan/10 text-term-cyan shadow-[0_0_18px_rgba(34,211,238,0.4)]"
-                : "border border-transparent text-term-dim hover:bg-glass hover:text-slate-100",
-            ].join(" ")}
+            key={m.id}
+            onClick={() => onChange(m.id)}
+            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              mode === m.id
+                ? "bg-[#3a3a3c] text-white shadow-sm"
+                : "text-text-muted hover:text-white hover:bg-white/5"
+            }`}
           >
-            <Icon size={14} />
-            <span className="hidden min-[360px]:inline">{label}</span>
+            {m.label}
           </button>
-        );
-      })}
-    </nav>
+        ))}
+      </div>
+    </div>
   );
 }
