@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   BASE_SYSTEM_PROMPT,
   MODE_ADDENDA,
@@ -156,6 +157,79 @@ export function useChat({
             }));
           }
         }
+
+        // --- SMART TOOL DETECTION (No Regex) ---
+        const firstBrace = acc.indexOf('{');
+        const lastBrace = acc.lastIndexOf('}');
+
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          const jsonString = acc.substring(firstBrace, lastBrace + 1);
+          
+          try {
+            const toolData = JSON.parse(jsonString);
+            
+            if (toolData && toolData.tool && toolData.args) {
+              // 1. Add a system status message
+              const statusMsgId = uid();
+              patchConversation(conv.id, (c) => ({
+                ...c,
+                messages: [
+                  ...c.messages, 
+                  { id: statusMsgId, role: "system", content: `⚙️ System: Running ${toolData.tool}...`, createdAt: Date.now() }
+                ]
+              }));
+
+              // 2. Run the actual Rust command
+              let toolResult = "";
+              try {
+                if (toolData.tool === "run_command") {
+                  toolResult = await invoke("run_command", { cmd: toolData.args.cmd });
+                } else if (toolData.tool === "read_file") {
+                  toolResult = await invoke("read_file", { path: toolData.args.path });
+                }
+              } catch (err) {
+                toolResult = `Error: ${err}`;
+              }
+
+              // 3. Remove status message
+              patchConversation(conv.id, (c) => ({
+                ...c,
+                messages: c.messages.filter(m => m.id !== statusMsgId)
+              }));
+
+              // 4. Create a new message for AI's final response
+              const finalMsgId = uid();
+              patchConversation(conv.id, (c) => ({
+                ...c,
+                messages: [...c.messages, { id: finalMsgId, role: "assistant", content: "", createdAt: Date.now() }]
+              }));
+
+              // 5. Send the tool result back to AI
+              let acc2 = "";
+              for await (const chunk of streamChat({
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  ...history,
+                  { role: "assistant", content: acc },
+                  { role: "user", content: `TOOL RESULT:\n${toolResult}\n\nAb is result ka use karke user ko final answer do.` }
+                ],
+                baseUrl, model, apiKey, temperature, signal: controller.signal,
+              })) {
+                if (chunk.delta) {
+                  acc2 += chunk.delta;
+                  patchConversation(conv.id, (c) => ({
+                    ...c,
+                    messages: c.messages.map((m) => m.id === finalMsgId ? { ...m, content: acc2 } : m),
+                    updatedAt: Date.now(),
+                  }));
+                }
+              }
+            }
+          } catch (e) {
+            // Agar JSON valid nahi hai (normal text hai), toh kuch mat karo
+          }
+        }
+
       } catch (err) {
         const msg = messageForError(err);
         patchConversation(conv.id, (c) => ({
@@ -173,21 +247,11 @@ export function useChat({
         setIsStreaming(false);
       }
     },
-    [
-      apiKey,
-      baseUrl,
-      mode,
-      model,
-      temperature,
-      ensureActive,
-      patchConversation,
-    ]
+    [apiKey, baseUrl, mode, model, temperature, ensureActive, patchConversation]
   );
 
   const exportJSON = useCallback(() => {
-    const blob = new Blob([JSON.stringify(conversations, null, 2)], {
-      type: "application/json",
-    });
+    const blob = new Blob([JSON.stringify(conversations, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -198,44 +262,22 @@ export function useChat({
 
   const exportMarkdown = useCallback(() => {
     if (!active) return;
-
     const lines: string[] = [];
     lines.push(`# ${active.title || "Untitled Session"}`);
-    lines.push("");
     lines.push(`**Mode:** ${mode}`);
     lines.push(`**Exported:** ${new Date().toLocaleString()}`);
-    lines.push(`**Messages:** ${active.messages.length}`);
-    lines.push("");
     lines.push("---");
-    lines.push("");
-
     for (const msg of active.messages) {
-      const label =
-        msg.role === "user"
-          ? "## 🧑 OPERATOR"
-          : msg.isError
-          ? "## ⚠️ SYSTEM ERROR"
-          : "## 🤖 CYBER-X";
+      const label = msg.role === "user" ? "## 🧑 OPERATOR" : msg.isError ? "## ⚠️ SYSTEM ERROR" : "## 🤖 CYBER-X";
       lines.push(label);
-      lines.push("");
-      lines.push(`_${new Date(msg.createdAt).toLocaleString()}_`);
-      lines.push("");
       lines.push(msg.content);
-      lines.push("");
       lines.push("---");
-      lines.push("");
     }
-
-    const md = lines.join("\n");
-    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    const safeTitle = (active.title || "session")
-      .replace(/[^a-z0-9-_]+/gi, "-")
-      .slice(0, 40)
-      .toLowerCase();
-    a.download = `cyberx-${safeTitle}-${Date.now()}.md`;
+    a.download = `cyberx-chat-${Date.now()}.md`;
     a.click();
     URL.revokeObjectURL(url);
   }, [active, mode]);
