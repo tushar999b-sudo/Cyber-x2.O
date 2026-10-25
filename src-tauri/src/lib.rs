@@ -13,12 +13,10 @@ fn read_file(path: String) -> Result<String, String> {
 // Tool 2: Terminal command chalane ke liye
 #[tauri::command]
 fn run_command(cmd: String) -> Result<String, String> {
-    // Basic Safety check - kuch dangerous commands block karne ke liye
     if cmd.contains("rm -rf /") || cmd.contains("mkfs") || cmd.contains("dd if=") {
         return Err("Command blocked for safety reasons.".into());
     }
 
-    // Arch Linux (Unix) ke liye
     let output = Command::new("sh").args(["-c", &cmd]).output();
 
     match output {
@@ -35,11 +33,30 @@ fn run_command(cmd: String) -> Result<String, String> {
     }
 }
 
+// Tool 3: File likhne ke liye (Root Directory Fix)
+#[tauri::command]
+fn write_file(path: String, content: String) -> Result<String, String> {
+    if path.starts_with("/") || path.contains("..") {
+        return Err("Security Error: Absolute paths are not allowed. Use relative paths.".into());
+    }
+    
+    // Force write path to project root (one level above src-tauri)
+    let mut target_path = std::env::current_dir().unwrap_or_default();
+    if target_path.ends_with("src-tauri") {
+        target_path.pop(); // Remove src-tauri from path
+    }
+    let full_path = target_path.join(&path);
+    
+    match fs::write(&full_path, content) {
+        Ok(_) => Ok(format!("Successfully wrote to file: {}", path)),
+        Err(e) => Err(format!("Failed to write file: {}", e)),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        // Yahan hum apne tools register kar rahe hain
-        .invoke_handler(tauri::generate_handler![read_file, run_command])
+        .invoke_handler(tauri::generate_handler![read_file, run_command, write_file])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
