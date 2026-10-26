@@ -6,6 +6,7 @@ export interface ChatMessage {
   content: string;
   createdAt: number;
   isError?: boolean;
+  image?: string; // 🟢 Naya: Base64 image data
 }
 
 export interface Conversation {

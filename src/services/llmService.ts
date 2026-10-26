@@ -1,8 +1,14 @@
 import { classifyHttpStatus, LLMError } from "../utils/errors";
 
+// 🟢 NAYA: Vision (Image) ke liye content parts
+export type ContentPart = 
+  | { type: "text"; text: string } 
+  | { type: "image_url"; image_url: { url: string } };
+
 export interface ChatMessagePayload {
   role: "system" | "user" | "assistant";
-  content: string;
+  // Ab content string ya array dono ho sakta hai
+  content: string | ContentPart[]; 
 }
 
 export interface StreamChatRequest {
@@ -42,12 +48,16 @@ export async function* streamChat(
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${req.apiKey}`,
+        // OpenRouter ke liye headers (optional but good practice)
+        "HTTP-Referer": "https://cyber-x.app",
+        "X-Title": "CYBER-X 2.0",
       },
       body: JSON.stringify({
         model: req.model,
         messages: req.messages,
         temperature: req.temperature,
         stream: true,
+        max_tokens: 4096, // Thoda badha diya taaki vision me detail aaye
       }),
       signal: req.signal,
     });
@@ -91,7 +101,7 @@ export async function* streamChat(
           const delta: string | undefined = json?.choices?.[0]?.delta?.content;
           if (delta) yield { delta, done: false };
         } catch {
-          // Skip malformed SSE fragments rather than fail the whole stream.
+          // Skip malformed SSE chunks
         }
       }
     }

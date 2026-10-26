@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  darkMode: 'class', // 🟢 Light/Dark theme ke liye zaroori hai
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
@@ -22,20 +23,10 @@ module.exports = {
           "Roboto",
           "sans-serif",
         ],
-        mono: [
-          "'JetBrains Mono'",
-          "ui-monospace",
-          "SFMono-Regular",
-          "Menlo",
-          "monospace",
-        ],
       },
-      borderRadius: {
-        DEFAULT: "12px",
-        lg: "16px",
-        xl: "24px",
-        full: "9999px",
-      },
+      boxShadow: {
+        glow: "0 0 60px rgba(255,255,255,0.06)"
+      }
     },
   },
   plugins: [],

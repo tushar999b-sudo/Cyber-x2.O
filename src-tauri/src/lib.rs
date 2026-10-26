@@ -1,23 +1,37 @@
 use std::process::Command;
 use std::fs;
 
-// Tool 1: File padhne ke liye
+// Tool 1: File padhne ke liye (Fixed Path)
 #[tauri::command]
 fn read_file(path: String) -> Result<String, String> {
-    match fs::read_to_string(&path) {
+    let mut target_path = std::env::current_dir().unwrap_or_default();
+    if target_path.ends_with("src-tauri") {
+        target_path.pop();
+    }
+    let full_path = target_path.join(&path);
+
+    match fs::read_to_string(&full_path) {
         Ok(content) => Ok(content),
         Err(e) => Err(format!("Failed to read file: {}", e)),
     }
 }
 
-// Tool 2: Terminal command chalane ke liye
+// Tool 2: Terminal command chalane ke liye (Fixed Path)
 #[tauri::command]
 fn run_command(cmd: String) -> Result<String, String> {
     if cmd.contains("rm -rf /") || cmd.contains("mkfs") || cmd.contains("dd if=") {
         return Err("Command blocked for safety reasons.".into());
     }
 
-    let output = Command::new("sh").args(["-c", &cmd]).output();
+    let mut target_path = std::env::current_dir().unwrap_or_default();
+    if target_path.ends_with("src-tauri") {
+        target_path.pop();
+    }
+
+    let output = Command::new("sh")
+        .current_dir(target_path)
+        .args(["-c", &cmd])
+        .output();
 
     match output {
         Ok(out) => {
@@ -33,17 +47,16 @@ fn run_command(cmd: String) -> Result<String, String> {
     }
 }
 
-// Tool 3: File likhne ke liye (Root Directory Fix)
+// Tool 3: File likhne ke liye (Fixed Path)
 #[tauri::command]
 fn write_file(path: String, content: String) -> Result<String, String> {
     if path.starts_with("/") || path.contains("..") {
         return Err("Security Error: Absolute paths are not allowed. Use relative paths.".into());
     }
     
-    // Force write path to project root (one level above src-tauri)
     let mut target_path = std::env::current_dir().unwrap_or_default();
     if target_path.ends_with("src-tauri") {
-        target_path.pop(); // Remove src-tauri from path
+        target_path.pop();
     }
     let full_path = target_path.join(&path);
     
@@ -60,3 +73,4 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
