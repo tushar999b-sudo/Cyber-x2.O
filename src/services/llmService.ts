@@ -1,13 +1,11 @@
 import { classifyHttpStatus, LLMError } from "../utils/errors";
 
-// 🟢 NAYA: Vision (Image) ke liye content parts
 export type ContentPart = 
   | { type: "text"; text: string } 
   | { type: "image_url"; image_url: { url: string } };
 
 export interface ChatMessagePayload {
   role: "system" | "user" | "assistant";
-  // Ab content string ya array dono ho sakta hai
   content: string | ContentPart[]; 
 }
 
@@ -48,7 +46,6 @@ export async function* streamChat(
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${req.apiKey}`,
-        // OpenRouter ke liye headers (optional but good practice)
         "HTTP-Referer": "https://cyber-x.app",
         "X-Title": "CYBER-X 2.0",
       },
@@ -57,7 +54,7 @@ export async function* streamChat(
         messages: req.messages,
         temperature: req.temperature,
         stream: true,
-        max_tokens: 4096, // Thoda badha diya taaki vision me detail aaye
+        max_tokens: 2048, // 🟢 Token limit kam ki taaki timeout na ho
       }),
       signal: req.signal,
     });
