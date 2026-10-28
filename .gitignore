@@ -5,3 +5,13 @@ dist/
 *.AppImage
 *.AppImage*
 *.AppImage*
+node_modules/
+src-tauri/target/
+dist/
+.env
+*.env
+.DS_Store
+Thumbs.db
+tts_cache/
+memory.json
+proactive.json

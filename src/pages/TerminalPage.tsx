@@ -12,6 +12,7 @@ import { useChat } from "../hooks/useChat";
 import { useMemory } from "../hooks/useMemory";
 import { LogoIcon } from "../components/CyberXLogo";
 import type { Mode } from "../types/settings";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
 function CodeBlock({ language, children, theme }: { language: string, children: string, theme: string }) {
   const [copied, setCopied] = useState(false);
@@ -43,16 +44,15 @@ export default function TerminalPage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 🟢 Settings State (Restored)
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"api" | "appearance" | "data" | "info">("api");
   
-  const [provider, setProvider] = useState("Local Router (FreeLLMAPI)");
-  const [model, setModel] = useState("llama-3.1-8b-instant");
+  const [provider, setProvider] = useState("Ollama (Local)");
+  const [model, setModel] = useState("dolphin-mistral:7b");
   const [temperature, setTemperature] = useState(0.0);
   const [streaming, setStreaming] = useState(true);
   const [apiKey, setApiKey] = useState("");
-  const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:31415/v1");
+  const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:11434/v1");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   
   const [testStatus, setTestStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -71,7 +71,6 @@ export default function TerminalPage() {
 
   const [showScrollButton, setShowScrollButton] = useState(false);
 
-  // 🟢 CHAT HOOK
   const chat = useChat({
     baseUrl: baseUrl, 
     model: model, 
@@ -125,12 +124,14 @@ export default function TerminalPage() {
   };
 
   const testConnection = async () => {
-    if (!apiKey) { setTestStatus("error"); setTestMessage("API Key is required."); return; }
+    const isOllama = baseUrl.includes("11434");
+    if (!apiKey && !isOllama) { setTestStatus("error"); setTestMessage("API Key is required."); return; }
+    
     setTestStatus("loading"); setTestMessage("");
     try {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
+      const res = await tauriFetch(`${baseUrl}/chat/completions`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey || "ollama"}` },
         body: JSON.stringify({ model: model || "auto", messages: [{ role: "user", content: "ping" }], max_tokens: 1, stream: false }),
       });
       if (res.ok) {
@@ -187,7 +188,8 @@ export default function TerminalPage() {
   };
 
   function handleStartChat(initialText = "") {
-    if (!apiKey) { setSettingsOpen(true); return; }
+    const isOllama = baseUrl.includes("11434");
+    if (!apiKey && !isOllama) { setSettingsOpen(true); return; }
     setView("chat"); setSidebarOpen(false);
     if (initialText.trim()) { chat.sendMessage(initialText.trim()); setPrompt(""); }
     window.setTimeout(() => { if (inputRef.current) { inputRef.current.style.height = 'auto'; inputRef.current.focus(); } }, 80);
@@ -195,8 +197,9 @@ export default function TerminalPage() {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const isOllama = baseUrl.includes("11434");
     if ((!prompt.trim() && !selectedImage) || chat.isStreaming) return; 
-    if (!apiKey) { setSettingsOpen(true); return; }
+    if (!apiKey && !isOllama) { setSettingsOpen(true); return; }
     chat.sendMessage(prompt.trim(), selectedImage || undefined); 
     setPrompt(""); setSelectedImage(null); 
     if (inputRef.current) inputRef.current.style.height = 'auto';
@@ -298,8 +301,8 @@ export default function TerminalPage() {
 
             <div className="flex flex-1 items-center justify-end gap-2 min-w-0 shrink-0">
               <button onClick={() => setSettingsOpen(true)} className="hidden items-center gap-2 rounded-full border border-black/10 dark:border-white/[0.08] bg-white dark:bg-[#111] px-3 py-1.5 text-[10px] text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white sm:flex shrink-0">
-                <span className={`h-1.5 w-1.5 rounded-full ${apiKey ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} /> 
-                {apiKey ? 'AGENT ACTIVE' : 'SET API KEY'}
+                <span className={`h-1.5 w-1.5 rounded-full ${apiKey || baseUrl.includes("11434") ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} /> 
+                {apiKey || baseUrl.includes("11434") ? 'AGENT ACTIVE' : 'SET API KEY'}
               </button>
             </div>
           </header>
@@ -451,13 +454,25 @@ export default function TerminalPage() {
 
             <div className="p-6 bg-white dark:bg-[#0a0a0a] max-h-[70vh] overflow-y-auto">
               
-              {/* API TAB (Restored) */}
               {settingsTab === "api" && (
                 <div className="space-y-5">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">Provider</label>
-                      <select value={provider} onChange={(e) => setProvider(e.target.value)} className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-neutral-50 dark:bg-[#111] px-4 py-3 text-sm text-black dark:text-white outline-none focus:border-black/30 dark:focus:border-white/30 appearance-none">
+                      <select 
+                        value={provider} 
+                        onChange={(e) => {
+                          const p = e.target.value;
+                          setProvider(p);
+                          if (p === "Ollama (Local)") {
+                            setBaseUrl("http://127.0.0.1:11434/v1");
+                            setModel("dolphin-mistral:7b");
+                            setApiKey("");
+                          }
+                        }} 
+                        className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-neutral-50 dark:bg-[#111] px-4 py-3 text-sm text-black dark:text-white outline-none focus:border-black/30 dark:focus:border-white/30 appearance-none"
+                      >
+                        <option>Ollama (Local)</option>
                         <option>Local Router (FreeLLMAPI)</option>
                         <option>Groq</option>
                         <option>OpenRouter</option>
@@ -485,13 +500,13 @@ export default function TerminalPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">API Key</label>
+                    <label className="block text-[10px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">API Key (Ollama ke liye zaroori nahi)</label>
                     <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="freellmapi-..." className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-neutral-50 dark:bg-[#111] px-4 py-3 text-sm text-black dark:text-white outline-none focus:border-black/30 dark:focus:border-white/30 font-mono" />
                   </div>
 
                   <div>
                     <label className="block text-[10px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">Base URL</label>
-                    <input type="text" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="http://127.0.0.1:31415/v1" className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-neutral-50 dark:bg-[#111] px-4 py-3 text-sm text-black dark:text-white outline-none focus:border-black/30 dark:focus:border-white/30 font-mono" />
+                    <input type="text" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434/v1" className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-neutral-50 dark:bg-[#111] px-4 py-3 text-sm text-black dark:text-white outline-none focus:border-black/30 dark:focus:border-white/30 font-mono" />
                   </div>
 
                   <div className="flex gap-3 pt-2">

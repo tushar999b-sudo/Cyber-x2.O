@@ -1,63 +1,43 @@
 use std::process::Command;
 use std::fs;
 
-// Tool 1: File read karne ke liye
 #[tauri::command]
 fn read_file(path: String) -> Result<String, String> {
     let mut target_path = std::env::current_dir().unwrap_or_default();
-    if target_path.ends_with("src-tauri") {
-        target_path.pop();
-    }
+    if target_path.ends_with("src-tauri") { target_path.pop(); }
     let full_path = target_path.join(&path);
-
+    
     match fs::read_to_string(&full_path) {
         Ok(content) => Ok(content),
         Err(e) => Err(format!("Failed to read file: {}", e)),
     }
 }
 
-// Tool 2: Terminal command chalane ke liye
 #[tauri::command]
 fn run_command(cmd: String) -> Result<String, String> {
     if cmd.contains("rm -rf /") || cmd.contains("mkfs") || cmd.contains("dd if=") {
         return Err("Command blocked for safety reasons.".into());
     }
-
+    
     let mut target_path = std::env::current_dir().unwrap_or_default();
-    if target_path.ends_with("src-tauri") {
-        target_path.pop();
-    }
-
-    let output = Command::new("sh")
-        .current_dir(target_path)
-        .args(["-c", &cmd])
-        .output();
-
+    if target_path.ends_with("src-tauri") { target_path.pop(); }
+    
+    let output = Command::new("sh").current_dir(target_path).args(["-c", &cmd]).output();
+    
     match output {
         Ok(out) => {
             let stdout = String::from_utf8_lossy(&out.stdout).to_string();
             let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-            
-            // Empty output handling (jisse AI confuse na ho)
             if out.status.success() {
-                if stdout.trim().is_empty() {
-                    Ok("Command executed successfully. (No output)".into())
-                } else {
-                    Ok(stdout)
-                }
+                if stdout.trim().is_empty() { Ok("Command executed successfully. (No output)".into()) } else { Ok(stdout) }
             } else {
-                if stderr.trim().is_empty() {
-                    Ok(format!("Command failed with exit code: {:?}", out.status.code()))
-                } else {
-                    Ok(format!("STDERR:\n{}", stderr))
-                }
+                if stderr.trim().is_empty() { Ok(format!("Command failed with exit code: {:?}", out.status.code())) } else { Ok(format!("STDERR:\n{}", stderr)) }
             }
         },
         Err(e) => Err(format!("Failed to run command: {}", e)),
     }
 }
 
-// Tool 3: File write karne ke liye
 #[tauri::command]
 fn write_file(path: String, content: String) -> Result<String, String> {
     if path.starts_with("/") || path.contains("..") {
@@ -65,9 +45,7 @@ fn write_file(path: String, content: String) -> Result<String, String> {
     }
     
     let mut target_path = std::env::current_dir().unwrap_or_default();
-    if target_path.ends_with("src-tauri") {
-        target_path.pop();
-    }
+    if target_path.ends_with("src-tauri") { target_path.pop(); }
     let full_path = target_path.join(&path);
     
     match fs::write(&full_path, content) {
@@ -76,7 +54,6 @@ fn write_file(path: String, content: String) -> Result<String, String> {
     }
 }
 
-// Tool 4: System Info nikalne ke liye
 #[tauri::command]
 fn system_info() -> Result<String, String> {
     let os = Command::new("sh").args(["-c", "uname -a"]).output().map(|o| String::from_utf8_lossy(&o.stdout).to_string()).unwrap_or_default();
@@ -86,13 +63,10 @@ fn system_info() -> Result<String, String> {
     Ok(format!("OS/Kernel:\n{}\n\nDisk Space:\n{}\n\nRAM:\n{}", os, disk, ram))
 }
 
-// Tool 5: Directory List karne ke liye
 #[tauri::command]
 fn list_directory(path: String) -> Result<String, String> {
     let mut target_path = std::env::current_dir().unwrap_or_default();
-    if target_path.ends_with("src-tauri") {
-        target_path.pop();
-    }
+    if target_path.ends_with("src-tauri") { target_path.pop(); }
     
     let dir_path = if path.is_empty() || path == "." { target_path } else { target_path.join(&path) };
     
@@ -111,7 +85,6 @@ fn list_directory(path: String) -> Result<String, String> {
     }
 }
 
-// Tool 6: Network Info ke liye
 #[tauri::command]
 fn network_info() -> Result<String, String> {
     let ip = Command::new("sh").args(["-c", "ip -brief a"]).output().map(|o| String::from_utf8_lossy(&o.stdout).to_string()).unwrap_or_default();
@@ -123,6 +96,7 @@ fn network_info() -> Result<String, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_http::init()) // 🟢 CORS / Network bypass ke liye
         .invoke_handler(tauri::generate_handler![
             read_file, 
             run_command, 
